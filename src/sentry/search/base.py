@@ -16,8 +16,9 @@ class SearchBackend(object):
     def index(self, group, event):
         pass
 
-    def remove(self, group):
-        pass
-
-    def query(self, **kwargs):
+    def search(self, project, query=None, status=None, tags=None,
+               bookmarked_by=None, sort_by='date'):
         raise NotImplementedError
+
+    def upgrade(self):
+        pass

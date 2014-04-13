@@ -81,8 +81,8 @@ class Fixtures(object):
         )
 
     def create_group(self, project=None, **kwargs):
+        kwargs.setdefault('message', 'Foo bar')
         return Group.objects.create(
-            message='Foo bar',
             project=project or self.project,
             **kwargs
         )
