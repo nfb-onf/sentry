@@ -53,7 +53,7 @@ class ElasticSearchTest(TestCase):
         assert len(results) == 1
         assert results[0] == group2.id
 
-        project2 = self.create_project(self.team)
+        project2 = self.create_project(team=self.team, name='estest')
 
         results = self.backend.search(project2, query='bar')
         assert len(results) == 0
