@@ -104,8 +104,6 @@ class ElasticSearchBackend(SearchBackend):
                 },
             }})
 
-        print query_body
-
         results = self.backend.search(
             index=self.index_prefix + 'sentry-1',
             doc_type='group',
