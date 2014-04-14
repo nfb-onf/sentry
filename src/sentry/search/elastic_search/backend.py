@@ -1,4 +1,4 @@
-"""
+'''
 sentry.search.elastic_search.backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -8,13 +8,13 @@ sentry.search.elastic_search.backend
 
 GET /_search
 {
-  "query": {
-    "bool": {
-      "must": [
-        { "match": {
-            "title":  {
-              "query": "War and Peace",
-              "boost": 2
+  'query': {
+    'bool': {
+      'must': [
+        { 'match': {
+            'title':  {
+              'query': 'War and Peace',
+              'boost': 2
         }}},
       ]
     }
@@ -31,7 +31,7 @@ GET /_search
 - kopf plugin
 - kibana/marvel
 
-"""
+'''
 
 from __future__ import absolute_import
 
@@ -54,6 +54,7 @@ class ElasticSearchBackend(SearchBackend):
             'project_id': group.project_id,
             'first_seen': group.first_seen,
             'last_seen': group.last_seen,
+            'status': group.status,
         }
 
         self.backend.index(
@@ -76,22 +77,44 @@ class ElasticSearchBackend(SearchBackend):
             parent=group.id,
         )
 
-    def search(self, project, query=None, sort_by='date'):
+    def search(self, project, query=None, status=None, tags=None,
+               bookmarked_by=None, sort_by='date'):
         query_body = {
-            "filter": {
-                "term": {"project_id": project.id},
-            },
-            "query": {
-                "match": {},
+            'filter': {
+                'and': [
+                    {'term': {'project_id': project.id}},
+                ],
             },
         }
         if query:
-            query_body['query']['match']['message'] = query
+            query_body['query'] = {'match': {'message': query}}
+
+        if status is not None:
+            query_body['filter']['and'].append({'term': {'status': status}})
+
+        if tags:
+            # TODO(dcramer): filter might be too expensive here, need to confirm
+            query_body['filter']['and'].append({'has_child': {
+                'type': 'event',
+                'filter': {
+                    'and': [
+                        {'term': {'tag:{0}'.format(k): v}}
+                        for k, v in tags.iteritems()
+                    ]
+                },
+            }})
+
+        print query_body
 
         results = self.backend.search(
             index=self.index_prefix + 'sentry-1',
             doc_type='group',
-            body={"query": {"filtered": query_body}},
+            body={
+                'query': {'filtered': query_body},
+                'sort': [
+                    {'last_seen': {'order': 'desc'}},
+                ],
+            },
         )
         if not results.get('hits'):
             return []
@@ -104,29 +127,29 @@ class ElasticSearchBackend(SearchBackend):
                 'template': self.index_prefix + 'sentry-*',
                 'mappings': {
                     'group': {
-                        "_source": {"enabled": False},
-                        "_routing": {
-                            "required": True,
-                            "path": "project_id",
+                        '_source': {'enabled': False},
+                        '_routing': {
+                            'required': True,
+                            'path': 'project_id',
                         },
-                        "message": {
-                            "type": "string",
+                        'message': {
+                            'type': 'string',
                         },
-                        "project_id": {
-                            "type": "long",
-                            "index": "not_analyzed",
+                        'project_id': {
+                            'type': 'long',
+                            'index': 'not_analyzed',
                         },
-                        "first_seen": {
-                            "type": "date",
+                        'first_seen': {
+                            'type': 'date',
                         },
-                        "last_seen": {
-                            "type": "date",
+                        'last_seen': {
+                            'type': 'date',
                         },
                     },
                     'event': {
-                        "_source": {"enabled": False},
-                        "_parent": {
-                            "type": "group",
+                        '_source': {'enabled': False},
+                        '_parent': {
+                            'type': 'group',
                         },
                     }
                 },
