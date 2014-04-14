@@ -77,21 +77,21 @@ class ElasticSearchBackend(SearchBackend):
         )
 
     def search(self, project, query=None, sort_by='date'):
+        query_body = {
+            "filter": {
+                "term": {"project_id": project.id},
+            },
+            "query": {
+                "match": {},
+            },
+        }
+        if query:
+            query_body['query']['match']['message'] = query
+
         results = self.backend.search(
             index=self.index_prefix + 'sentry-1',
             doc_type='group',
-            body={
-                "query": {
-                    "filtered": {
-                        "query": {
-                            "match": {"message": query},
-                        },
-                        "filter": {
-                            "term": {"project_id": project.id},
-                        },
-                    }
-                },
-            },
+            body={"query": {"filtered": query_body}},
         )
         if not results.get('hits'):
             return []
