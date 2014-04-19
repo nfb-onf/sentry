@@ -93,7 +93,7 @@ class Fixtures(object):
         if 'group' not in kwargs:
             kwargs['group'] = self.group
         kwargs.setdefault('project', kwargs['group'].project)
-        kwargs.setdefault('message', 'Foo bar')
+        kwargs.setdefault('message', kwargs['group'].message)
         kwargs.setdefault('data', LEGACY_DATA)
         if kwargs.get('tags'):
             tags = kwargs.pop('tags')
