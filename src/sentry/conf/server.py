@@ -565,10 +565,6 @@ SENTRY_SEARCH_OPTIONS = {}
 #     'timeout': 5,
 # }
 
-# Enable search within the frontend
-SENTRY_USE_SEARCH = True
-# SENTRY_INDEX_SEARCH = SENTRY_USE_SEARCH
-
 SENTRY_RAVEN_JS_URL = 'cdn.ravenjs.com/1.1.11/jquery,native/raven.min.js'
 
 # URI Prefixes for generating DSN URLs

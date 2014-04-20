@@ -52,6 +52,9 @@ MSSQL_SCORE_CLAUSES = MSSQL_SORT_CLAUSES.copy()
 
 
 class DjangoSearchBackend(SearchBackend):
+    def index(self, event):
+        pass
+
     def query(self, project, query=None, status=None, tags=None,
               bookmarked_by=None, sort_by='date', date_filter='last_seen',
               date_from=None, date_to=None, cursor=None):

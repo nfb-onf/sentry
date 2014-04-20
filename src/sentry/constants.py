@@ -162,9 +162,6 @@ EVENTS_PER_PAGE = 15
 # Default sort option for the group stream
 DEFAULT_SORT_OPTION = 'date'
 
-# Default sort option for the search results
-SEARCH_DEFAULT_SORT_OPTION = 'date'
-
 # Setup languages for only available locales
 LANGUAGE_MAP = dict(settings.LANGUAGES)
 LANGUAGES = [(k, LANGUAGE_MAP[k]) for k in get_all_languages() if k in LANGUAGE_MAP]

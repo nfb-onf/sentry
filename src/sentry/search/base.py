@@ -54,8 +54,8 @@ class SearchBackend(object):
     def __init__(self, **options):
         pass
 
-    def index(self, group, event):
-        pass
+    def index(self, event):
+        raise NotImplementedError
 
     def query(self, project, query=None, status=None, tags=None,
               bookmarked_by=None, sort_by='date'):

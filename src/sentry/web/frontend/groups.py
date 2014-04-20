@@ -14,7 +14,6 @@ from __future__ import division
 import datetime
 import re
 
-from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import get_object_or_404
@@ -22,8 +21,7 @@ from django.utils import timezone
 
 from sentry import app
 from sentry.constants import (
-    SORT_OPTIONS, SEARCH_SORT_OPTIONS, MEMBER_USER, MAX_JSON_RESULTS,
-    DEFAULT_SORT_OPTION
+    SORT_OPTIONS, MEMBER_USER, MAX_JSON_RESULTS, DEFAULT_SORT_OPTION
 )
 from sentry.db.models import create_or_update
 from sentry.models import (
@@ -45,6 +43,24 @@ def _get_group_list(request, project):
     query_kwargs = {
         'project': project,
     }
+
+    query = request.GET.get('query')
+    if query and uuid_re.match(query):
+        # Forward to event if it exists
+        try:
+            group_id = EventMapping.objects.filter(
+                project=project, event_id=query
+            ).values('group', flat=True)[0]
+        except EventMapping.DoesNotExist:
+            pass
+        else:
+            return HttpResponseRedirect(reverse('sentry-group', kwargs={
+                'project_id': project.slug,
+                'team_slug': project.team.slug,
+                'group_id': group_id,
+            }))
+    elif query:
+        query_kwargs['query'] = query
 
     if request.GET.get('status'):
         query_kwargs['status'] = int(request.GET['status'])
@@ -188,90 +204,6 @@ def wall_display(request, team):
     return render_to_response('sentry/wall.html', {
         'team': team,
         'project_list': project_list,
-    }, request)
-
-
-@login_required
-@has_access
-def search(request, team, project):
-    query = request.GET.get('q', '').strip()
-
-    if not query:
-        return HttpResponseRedirect(reverse('sentry-stream', args=[team.slug, project.slug]))
-
-    sort = request.GET.get('sort')
-    if sort not in SEARCH_SORT_OPTIONS:
-        sort = 'date'
-    sort_label = SEARCH_SORT_OPTIONS[sort]
-
-    result = event_re.match(query)
-    if result:
-        # Forward to aggregate if it exists
-        # event_id = result.group(1)
-        checksum = result.group(2)
-        try:
-            group = Group.objects.filter(project=project, checksum=checksum)[0]
-        except IndexError:
-            return render_to_response('sentry/invalid_message_id.html', {
-                'team': team,
-                'project': project,
-            }, request)
-        else:
-            return HttpResponseRedirect(reverse('sentry-group', kwargs={
-                'project_id': group.project.slug,
-                'team_slug': group.team.slug,
-                'group_id': group.id,
-            }))
-    elif uuid_re.match(query):
-        # Forward to event if it exists
-        try:
-            group_id = EventMapping.objects.get(
-                project=project, event_id=query
-            ).group_id
-        except EventMapping.DoesNotExist:
-            try:
-                event = Event.objects.get(project=project, event_id=query)
-            except Event.DoesNotExist:
-                return render_to_response('sentry/invalid_message_id.html', {
-                    'team': team,
-                    'project': project,
-                }, request)
-            else:
-                return HttpResponseRedirect(reverse('sentry-group-event', kwargs={
-                    'project_id': project.slug,
-                    'team_slug': team.slug,
-                    'group_id': event.group.id,
-                    'event_id': event.id,
-                }))
-        else:
-            return HttpResponseRedirect(reverse('sentry-group', kwargs={
-                'project_id': project.slug,
-                'team_slug': team.slug,
-                'group_id': group_id,
-            }))
-    elif not settings.SENTRY_USE_SEARCH:
-        event_list = Group.objects.none()
-        # return render_to_response('sentry/invalid_message_id.html', {
-        #         'project': project,
-        #     }, request)
-    else:
-        documents = list(app.search.query(project, query, sort_by=sort))
-        groups = Group.objects.in_bulk([d.group_id for d in documents])
-
-        event_list = []
-        for doc in documents:
-            try:
-                event_list.append(groups[doc.group_id])
-            except KeyError:
-                continue
-
-    return render_to_response('sentry/search.html', {
-        'team': project.team,
-        'project': project,
-        'event_list': event_list,
-        'query': query,
-        'sort': sort,
-        'sort_label': sort_label,
     }, request)
 
 
