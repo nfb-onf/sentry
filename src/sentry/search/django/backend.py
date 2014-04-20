@@ -49,6 +49,7 @@ MSSQL_SORT_CLAUSES.update({
     'new': "DATEDIFF(s, '1970-01-01T00:00:00', sentry_groupedmessage.first_seen)",
 })
 MSSQL_SCORE_CLAUSES = MSSQL_SORT_CLAUSES.copy()
+MSSQL_ENGINES = set(['django_pytds', 'sqlserver_ado', 'sql_server.pyodbc'])
 
 
 class DjangoSearchBackend(SearchBackend):
@@ -106,7 +107,7 @@ class DjangoSearchBackend(SearchBackend):
         elif engine.startswith('oracle'):
             score_clause = ORACLE_SORT_CLAUSES.get(sort_by)
             filter_clause = ORACLE_SCORE_CLAUSES.get(sort_by)
-        elif engine in ('django_pytds', 'sqlserver_ado', 'sql_server.pyodbc'):
+        elif engine in MSSQL_ENGINES:
             score_clause = MSSQL_SORT_CLAUSES.get(sort_by)
             filter_clause = MSSQL_SCORE_CLAUSES.get(sort_by)
         else:
@@ -134,4 +135,5 @@ class DjangoSearchBackend(SearchBackend):
                     params=[float(cursor)],
                 )
 
-        return SearchResult(list(queryset.values_list('id', flat=True)))
+        # HACK:
+        return SearchResult(instances=list(queryset))

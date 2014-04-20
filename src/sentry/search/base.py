@@ -12,9 +12,11 @@ from collections import Sequence
 
 
 class SearchResult(Sequence):
-    def __init__(self, id_list):
+    def __init__(self, id_list=None, instances=None):
+        assert not (id_list and instances), \
+            'pass either id_list or instances, not both'
         self._id_list = id_list
-        self._result_cache = None
+        self._result_cache = instances
 
     def __len__(self):
         if self._result_cache is None:
