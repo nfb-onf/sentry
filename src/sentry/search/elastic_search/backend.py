@@ -77,8 +77,8 @@ class ElasticSearchBackend(SearchBackend):
             parent=group.id,
         )
 
-    def search(self, project, query=None, status=None, tags=None,
-               bookmarked_by=None, sort_by='date'):
+    def query(self, project, query=None, status=None, tags=None,
+              bookmarked_by=None, sort_by='date'):
         query_body = {
             'filter': {
                 'and': [

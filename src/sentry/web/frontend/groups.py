@@ -23,12 +23,7 @@ from django.utils import timezone
 
 from sentry import app
 from sentry.constants import (
-    SORT_OPTIONS, SEARCH_SORT_OPTIONS, SORT_CLAUSES,
-    MYSQL_SORT_CLAUSES, SQLITE_SORT_CLAUSES, MEMBER_USER,
-    SCORE_CLAUSES, MYSQL_SCORE_CLAUSES, SQLITE_SCORE_CLAUSES,
-    ORACLE_SORT_CLAUSES, ORACLE_SCORE_CLAUSES,
-    MSSQL_SORT_CLAUSES, MSSQL_SCORE_CLAUSES, DEFAULT_SORT_OPTION,
-    SEARCH_DEFAULT_SORT_OPTION, MAX_JSON_RESULTS
+    SORT_OPTIONS, SEARCH_SORT_OPTIONS, MEMBER_USER, MAX_JSON_RESULTS
 )
 from sentry.db.models import create_or_update
 from sentry.filters import get_filters
@@ -39,7 +34,7 @@ from sentry.permissions import can_admin_group, can_create_projects
 from sentry.plugins import plugins
 from sentry.utils import json
 from sentry.utils.dates import parse_date
-from sentry.utils.db import has_trending, get_db_engine
+from sentry.utils.db import has_trending
 from sentry.web.decorators import has_access, has_group_access, login_required
 from sentry.web.forms import NewNoteForm
 from sentry.web.helpers import render_to_response, group_is_public
@@ -57,32 +52,37 @@ def _get_group_list(request, project):
             logger = logging.getLogger('sentry.filters')
             logger.exception('Error initializing filter %r: %s', cls, e)
 
-    event_list = Group.objects
-    if request.user.is_authenticated() and request.GET.get('bookmarks'):
-        event_list = event_list.filter(
-            bookmark_set__project=project,
-            bookmark_set__user=request.user,
-        )
-    else:
-        event_list = event_list.filter(project=project)
+    query_kwargs = {
+        'project': project,
+    }
 
-    for filter_ in filters:
-        try:
-            if not filter_.is_set():
-                continue
-            event_list = filter_.get_query_set(event_list)
-        except Exception as e:
-            logger = logging.getLogger('sentry.filters')
-            logger.exception('Error processing filter %r: %s', cls, e)
+    if request.GET.get('status'):
+        query_kwargs['status'] = int(request.GET['status'])
+
+    if request.user.is_authenticated() and request.GET.get('bookmarks'):
+        query_kwargs['bookmarked_by'] = request.user
+
+    sort_by = request.GET.get('sort') or request.session.get('streamsort')
+    # Save last sort in session
+    if sort_by != request.session.get('streamsort'):
+        request.session['streamsort'] = sort_by
+    if sort_by:
+        query_kwargs['sort_by'] = sort_by
+
+    tags = {}
+    for tag_key in TagKey.objects.all_keys(project):
+        if request.GET.get(tag_key):
+            tags[tag_key] = request.GET[tag_key]
+    if tags:
+        query_kwargs['tags'] = tags
 
     date_from = request.GET.get('df')
     time_from = request.GET.get('tf')
     date_to = request.GET.get('dt')
     time_to = request.GET.get('tt')
-    date_type = request.GET.get('date_type')
+    date_filter = request.GET.get('date_type')
 
     today = timezone.now()
-
     # date format is Y-m-d
     if any(x is not None for x in [date_from, time_from, date_to, time_to]):
         date_from, date_to = parse_date(date_from, time_from), parse_date(date_to, time_to)
@@ -90,84 +90,27 @@ def _get_group_list(request, project):
         date_from = today - datetime.timedelta(days=5)
         date_to = None
 
-    if date_type == 'first_seen':
-        if date_from:
-            event_list = event_list.filter(first_seen__gte=date_from)
-        elif date_to:
-            event_list = event_list.filter(first_seen__lte=date_to)
-    else:
-        if date_from and date_to:
-            event_list = event_list.filter(
-                groupcountbyminute__date__gte=date_from,
-                groupcountbyminute__date__lte=date_to,
-            )
-        elif date_from:
-            event_list = event_list.filter(last_seen__gte=date_from)
-        elif date_to:
-            event_list = event_list.filter(last_seen__lte=date_to)
+    query_kwargs['date_from'] = date_from
+    query_kwargs['date_to'] = date_to
+    if date_filter:
+        query_kwargs['date_filter'] = date_filter
 
-    sort = request.GET.get('sort') or request.session.get('streamsort')
-    if sort not in SORT_OPTIONS:
-        sort = DEFAULT_SORT_OPTION
+    cursor = request.GET.get('cursor', request.GET.get('c'))
+    if cursor:
+        query_kwargs['cursor'] = cursor
 
-    # Save last sort in session
-    if sort != request.session.get('streamsort'):
-        request.session['streamsort'] = sort
+    results = app.search.query(**query_kwargs)
+    group_map = Group.objects.in_bulk(results)
 
-    if sort.startswith('accel_') and not has_trending():
-        sort = DEFAULT_SORT_OPTION
-
-    engine = get_db_engine('default')
-    if engine.startswith('sqlite'):
-        score_clause = SQLITE_SORT_CLAUSES.get(sort)
-        filter_clause = SQLITE_SCORE_CLAUSES.get(sort)
-    elif engine.startswith('mysql'):
-        score_clause = MYSQL_SORT_CLAUSES.get(sort)
-        filter_clause = MYSQL_SCORE_CLAUSES.get(sort)
-    elif engine.startswith('oracle'):
-        score_clause = ORACLE_SORT_CLAUSES.get(sort)
-        filter_clause = ORACLE_SCORE_CLAUSES.get(sort)
-    elif engine in ('django_pytds', 'sqlserver_ado', 'sql_server.pyodbc'):
-        score_clause = MSSQL_SORT_CLAUSES.get(sort)
-        filter_clause = MSSQL_SCORE_CLAUSES.get(sort)
-    else:
-        score_clause = SORT_CLAUSES.get(sort)
-        filter_clause = SCORE_CLAUSES.get(sort)
-
-    # IMPORTANT: All filters must already be applied once we reach this point
-
-    if sort == 'tottime':
-        event_list = event_list.filter(time_spent_count__gt=0)
-    elif sort == 'avgtime':
-        event_list = event_list.filter(time_spent_count__gt=0)
-    elif sort.startswith('accel_'):
-        event_list = Group.objects.get_accelerated(
-            [project.id], event_list, minutes=int(sort.split('_', 1)[1]))
-
-    if score_clause:
-        event_list = event_list.extra(
-            select={'sort_value': score_clause},
-        )
-        # HACK: don't sort by the same column twice
-        if sort == 'date':
-            event_list = event_list.order_by('-last_seen')
-        else:
-            event_list = event_list.order_by('-sort_value', '-last_seen')
-        cursor = request.GET.get('cursor', request.GET.get('c'))
-        if cursor:
-            event_list = event_list.extra(
-                where=['%s > %%s' % filter_clause],
-                params=[float(cursor)],
-            )
+    event_list = [group_map[g.id] for g in results if g.id in group_map]
 
     return {
-        'filters': filters,
         'event_list': event_list,
         'date_from': date_from,
         'date_to': date_to,
         'today': today,
-        'sort': sort,
-        'date_type': date_type
+        'sort': sort_by,
+        'date_type': date_filter,
     }
 
 
@@ -268,7 +211,7 @@ def search(request, team, project):
 
     sort = request.GET.get('sort')
     if sort not in SEARCH_SORT_OPTIONS:
-        sort = SEARCH_DEFAULT_SORT_OPTION
+        sort = 'date'
     sort_label = SEARCH_SORT_OPTIONS[sort]
 
     result = event_re.match(query)
