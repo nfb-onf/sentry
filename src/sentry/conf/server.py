@@ -450,10 +450,6 @@ SENTRY_PUBLIC = False
 SENTRY_PROJECT = 1
 SENTRY_CACHE_BACKEND = 'default'
 
-SENTRY_FILTERS = (
-    'sentry.filters.StatusFilter',
-)
-
 SENTRY_KEY = None
 
 # Absolute URL to the sentry root directory. Should not include a trailing slash.

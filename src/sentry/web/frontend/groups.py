@@ -12,7 +12,6 @@ TODO: Move all events.py views into here, and rename this file to events.
 from __future__ import division
 
 import datetime
-import logging
 import re
 
 from django.conf import settings
@@ -26,7 +25,6 @@ from sentry.constants import (
     SORT_OPTIONS, SEARCH_SORT_OPTIONS, MEMBER_USER, MAX_JSON_RESULTS
 )
 from sentry.db.models import create_or_update
-from sentry.filters import get_filters
 from sentry.models import (
     Project, Group, Event, Activity, EventMapping, TagKey, GroupSeen
 )
@@ -43,14 +41,6 @@ event_re = re.compile(r'^(?P<event_id>[a-z0-9]{32})\$(?P<checksum>[a-z0-9]{32})$
 
 
 def _get_group_list(request, project):
-    filters = []
-    for cls in get_filters(Group, project):
-        try:
-            filters.append(cls(request, project))
-        except Exception as e:
-            logger = logging.getLogger('sentry.filters')
-            logger.exception('Error initializing filter %r: %s', cls, e)
-
     query_kwargs = {
         'project': project,
     }
@@ -308,9 +298,7 @@ def group_list(request, team, project):
         'has_realtime': has_realtime,
         'event_list': response['event_list'],
         'today': response['today'],
-        'sort': response['sort'],
         'sort_label': sort_label,
-        'filters': response['filters'],
         'SORT_OPTIONS': SORT_OPTIONS,
     }, request)
 
