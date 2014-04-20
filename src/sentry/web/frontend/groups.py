@@ -34,7 +34,6 @@ from sentry.permissions import can_admin_group, can_create_projects
 from sentry.plugins import plugins
 from sentry.utils import json
 from sentry.utils.dates import parse_date
-from sentry.utils.db import has_trending
 from sentry.web.decorators import has_access, has_group_access, login_required
 from sentry.web.forms import NewNoteForm
 from sentry.web.helpers import render_to_response, group_is_public
@@ -102,7 +101,7 @@ def _get_group_list(request, project):
     results = app.search.query(**query_kwargs)
     group_map = Group.objects.in_bulk(results)
 
-    event_list = [group_map[g.id] for g in results if g.id in group_map]
+    event_list = [group_map[g_id] for g_id in results if g_id in group_map]
 
     return {
         'event_list': event_list,
@@ -316,7 +315,6 @@ def group_list(request, team, project):
         'sort_label': sort_label,
         'filters': response['filters'],
         'SORT_OPTIONS': SORT_OPTIONS,
-        'HAS_TRENDING': has_trending(),
     }, request)
 
 

@@ -176,15 +176,10 @@ class ChartMixin(object):
             date__gte=min_date,
         ).extra(
             select={'grouper': method},
-        )
-        if key:
-            chart_qs = chart_qs.values('grouper', key)
-        else:
-            chart_qs = chart_qs.values('grouper')
-
-        chart_qs = chart_qs.annotate(
+        ).annotate(
             num=Sum('times_seen'),
         )
+
         if key:
             chart_qs = chart_qs.values_list(key, 'grouper', 'num').order_by(key, 'grouper')
         else:
@@ -703,6 +698,35 @@ class ProjectManager(BaseManager, ChartMixin):
 
         return sorted(projects, key=lambda x: x.name.lower())
 
+    def get_chart_data(self, instance, max_days=90, key=None):
+        if hasattr(instance, '_state'):
+            db = instance._state.db or 'default'
+        else:
+            db = 'default'
+
+        queryset = instance.projectcountbyminute_set
+
+        return self._get_chart_data(queryset, max_days, db, key=key)
+
+    def get_chart_data_for_group(self, instances, max_days=90, key=None):
+        if not instances:
+            if key is None:
+                return []
+            return {}
+
+        if hasattr(instances[0], '_state'):
+            db = instances[0]._state.db or 'default'
+        else:
+            db = 'default'
+
+        field = self.model.projectcountbyminute_set.related
+        column = field.field.name
+        queryset = field.model.objects.filter(**{
+            '%s__in' % column: instances,
+        })
+
+        return self._get_chart_data(queryset, max_days, db, key=key)
+
 
 class MetaManager(BaseManager):
     NOTSET = object()
@@ -734,7 +758,6 @@ class MetaManager(BaseManager):
         self.__metadata.pop(key, None)
 
     def set_value(self, key, value):
-        print key, value
         inst, _ = self.get_or_create(
             key=key,
             defaults={
