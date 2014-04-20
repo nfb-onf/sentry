@@ -37,7 +37,7 @@ from __future__ import absolute_import
 
 from elasticsearch import Elasticsearch
 
-from sentry.search.base import SearchBackend
+from sentry.search.base import SearchBackend, SearchResult
 
 
 class ElasticSearchBackend(SearchBackend):
@@ -115,8 +115,8 @@ class ElasticSearchBackend(SearchBackend):
             },
         )
         if not results.get('hits'):
-            return []
-        return [int(n['_id']) for n in results['hits']['hits']]
+            return SearchResult([])
+        return SearchResult([int(n['_id']) for n in results['hits']['hits']])
 
     def upgrade(self):
         self.backend.indices.put_template(

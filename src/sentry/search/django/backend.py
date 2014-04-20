@@ -8,7 +8,7 @@ sentry.search.django.backend
 
 from __future__ import absolute_import
 
-from sentry.search.base import SearchBackend
+from sentry.search.base import SearchBackend, SearchResult
 from sentry.utils.db import get_db_engine
 
 
@@ -131,4 +131,4 @@ class DjangoSearchBackend(SearchBackend):
                     params=[float(cursor)],
                 )
 
-        return list(queryset.values_list('id', flat=True))
+        return SearchResult(list(queryset.values_list('id', flat=True)))

@@ -60,26 +60,26 @@ class ElasticSearchTest(TestCase):
 
         results = self.backend.query(project1, query='foo')
         assert len(results) == 1
-        assert results[0] == group1.id
+        assert results[0] == group1
 
         results = self.backend.query(project1, query='bar')
         assert len(results) == 1
-        assert results[0] == group2.id
+        assert results[0] == group2
 
         results = self.backend.query(project2, query='bar')
         assert len(results) == 0
 
         results = self.backend.query(project1, tags={'env': 'staging'})
         assert len(results) == 1
-        assert results[0] == group2.id
+        assert results[0] == group2
 
         results = self.backend.query(project1, query='foo', tags={'env': 'staging'})
         assert len(results) == 0
 
         results = self.backend.query(project1, status=STATUS_RESOLVED)
         assert len(results) == 1
-        assert results[0] == group1.id
+        assert results[0] == group1
 
         results = self.backend.query(project1, status=STATUS_UNRESOLVED)
         assert len(results) == 1
-        assert results[0] == group2.id
+        assert results[0] == group2

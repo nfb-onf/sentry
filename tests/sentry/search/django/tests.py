@@ -28,8 +28,8 @@ class DjangoSearchTest(TestCase):
 
         results = self.backend.query(project, query='foo')
         assert len(results) == 1
-        assert results[0] == group1.id
+        assert results[0] == group1
 
         results = self.backend.query(project, query='bar')
         assert len(results) == 1
-        assert results[0] == group2.id
+        assert results[0] == group2

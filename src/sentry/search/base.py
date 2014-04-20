@@ -8,6 +8,47 @@ sentry.search.base
 
 from __future__ import absolute_import
 
+from collections import Sequence
+
+
+class SearchResult(Sequence):
+    def __init__(self, id_list):
+        self._id_list = id_list
+        self._result_cache = None
+
+    def __len__(self):
+        if self._result_cache is None:
+            self._populate_result_cache()
+        return len(self._result_cache)
+
+    def __iter__(self):
+        if self._result_cache is None:
+            self._populate_result_cache()
+        return iter(self._result_cache)
+
+    def __getitem__(self, key):
+        if self._result_cache is None:
+            self._populate_result_cache()
+        return self._result_cache[key]
+
+    def __repr__(self):
+        return '<%s: ids=%s>' % (type(self).__name__, self._id_list)
+
+    def _populate_result_cache(self):
+        from sentry.models import Group
+
+        id_list = self._id_list
+        group_map = Group.objects.in_bulk(id_list)
+
+        results = []
+        for g_id in id_list:
+            try:
+                results.append(group_map[g_id])
+            except KeyError:
+                pass
+
+        self._result_cache = results
+
 
 class SearchBackend(object):
     def __init__(self, **options):

@@ -99,12 +99,9 @@ def _get_group_list(request, project):
         query_kwargs['cursor'] = cursor
 
     results = app.search.query(**query_kwargs)
-    group_map = Group.objects.in_bulk(results)
-
-    event_list = [group_map[g_id] for g_id in results if g_id in group_map]
 
     return {
-        'event_list': event_list,
+        'event_list': results,
         'date_from': date_from,
         'date_to': date_to,
         'today': today,
