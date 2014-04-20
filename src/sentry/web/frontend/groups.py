@@ -22,7 +22,8 @@ from django.utils import timezone
 
 from sentry import app
 from sentry.constants import (
-    SORT_OPTIONS, SEARCH_SORT_OPTIONS, MEMBER_USER, MAX_JSON_RESULTS
+    SORT_OPTIONS, SEARCH_SORT_OPTIONS, MEMBER_USER, MAX_JSON_RESULTS,
+    DEFAULT_SORT_OPTION
 )
 from sentry.db.models import create_or_update
 from sentry.models import (
@@ -52,11 +53,14 @@ def _get_group_list(request, project):
         query_kwargs['bookmarked_by'] = request.user
 
     sort_by = request.GET.get('sort') or request.session.get('streamsort')
+    if sort_by is None:
+        sort_by = DEFAULT_SORT_OPTION
+
     # Save last sort in session
     if sort_by != request.session.get('streamsort'):
         request.session['streamsort'] = sort_by
-    if sort_by:
-        query_kwargs['sort_by'] = sort_by
+
+    query_kwargs['sort_by'] = sort_by
 
     tags = {}
     for tag_key in TagKey.objects.all_keys(project):
@@ -298,6 +302,7 @@ def group_list(request, team, project):
         'has_realtime': has_realtime,
         'event_list': response['event_list'],
         'today': response['today'],
+        'sort': response['sort'],
         'sort_label': sort_label,
         'SORT_OPTIONS': SORT_OPTIONS,
     }, request)
