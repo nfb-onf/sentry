@@ -78,7 +78,8 @@ class ElasticSearchBackend(SearchBackend):
         )
 
     def query(self, project, query=None, status=None, tags=None,
-              bookmarked_by=None, sort_by='date'):
+              bookmarked_by=None, sort_by='date', date_filter='last_seen',
+              date_from=None, date_to=None, cursor=None):
         query_body = {
             'filter': {
                 'and': [
