@@ -320,7 +320,10 @@ def expand_javascript_source(data, **kwargs):
             source, sourcemap = source_code[frame.abs_path]
         except KeyError:
             # we must've failed pulling down the source
-            continue
+            if frame.filename:
+                # Try and generate a useful module name even if there
+                # was no sourcemap. It's possible the source wasn't minified
+                frame.module = generate_module(frame.filename)
 
         # may have had a failure pulling down the sourcemap previously
         if sourcemap in sourmap_idxs and frame.colno is not None:
@@ -372,10 +375,10 @@ def expand_javascript_source(data, **kwargs):
         for exception, stacktrace in itertools.izip(data['sentry.interfaces.Exception']['values'], stacktraces):
             exception['stacktrace'] = stacktrace.serialize()
 
-        # Attempt to fix the culrpit now that we have useful information
-        culprit_frame = stacktraces[0].frames[-1]
-        if culprit_frame.module and culprit_frame.function:
-            data['culprit'] = truncatechars(generate_culprit(culprit_frame), MAX_CULPRIT_LENGTH)
+    # Attempt to fix the culrpit now that we have potentially useful information
+    culprit_frame = stacktraces[0].frames[-1]
+    if culprit_frame.module and culprit_frame.function:
+        data['culprit'] = truncatechars((culprit_frame), MAX_CULPRIT_LENGTH)
 
 
 def generate_module(src):
