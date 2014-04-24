@@ -91,7 +91,7 @@ mysql_requires = [
 
 setup(
     name='sentry',
-    version='5.4.7',
+    version='5.4.7.1',
     author='David Cramer',
     author_email='dcramer@gmail.com',
     url='http://www.getsentry.com',
