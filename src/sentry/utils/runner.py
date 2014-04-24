@@ -176,9 +176,10 @@ def initialize_app(config):
     install_plugins(config['settings'])
 
 
-def configure():
+def configure(config_path=None):
     configure_app(
         project='sentry',
+        config_path=config_path,
         default_config_path='~/.sentry/sentry.conf.py',
         default_settings='sentry.conf.server',
         settings_initializer=generate_settings,
